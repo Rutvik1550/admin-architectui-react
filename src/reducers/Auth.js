@@ -1,12 +1,19 @@
 export const SET_AUTH_TOKEN = "SET_AUTH_TOKEN";
+export const SET_LOADING = "SET_LOADING";
 
 export const setAuthToken = (token) => ({
     type: SET_AUTH_TOKEN,
     token
 })
 
+export const setLoading = (loading) => ({
+    type: SET_LOADING,
+    loading
+})
+
 const initialState = {
-    token: ""
+    token: "",
+    loading: false
 }
 
 
@@ -19,6 +26,6 @@ export default function authReducer(state = initialState, action) {
             }
     
         default:
-            break;
     }
+    return state
 }

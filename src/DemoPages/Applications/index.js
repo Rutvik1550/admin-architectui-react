@@ -28,9 +28,9 @@ const Applications = ({ match }) => (
           <Route path={`${match.url}/chat`} component={Chat} />
           <Route path={`${match.url}/faq-section`} component={FaqSection} />
         </div>
-        <div className="app-wrapper-footer">
+        {/* <div className="app-wrapper-footer">
           <AppFooter />
-        </div>
+        </div> */}
       </div>
     </div>
   </Fragment>
