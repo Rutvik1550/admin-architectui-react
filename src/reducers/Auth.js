@@ -24,6 +24,12 @@ export default function authReducer(state = initialState, action) {
                 ...state,
                 token: action.token
             }
+        
+        case SET_LOADING:
+            return {
+                ...state,
+                loading: action.loading
+            }
     
         default:
     }
