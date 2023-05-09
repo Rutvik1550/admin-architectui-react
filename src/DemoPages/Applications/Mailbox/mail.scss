@@ -10,3 +10,34 @@
     }
   }
 }
+
+.mail-subject-wrapper {
+  max-width: 350px;
+  overflow: hidden;
+  
+  .mail-subject {
+    display: flex;
+    overflow-wrap: normal !important;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: inherit;
+  }
+}
+
+.app-inner-layout__top-pane {
+  .input-group {
+    margin-right: 10px;
+  }
+
+  .pane-right {
+    white-space: pre;
+  }
+}
+
+.search-form-container {
+  .search-form-wrapper {
+    label {
+      min-width: 75px;
+    }
+  }
+}

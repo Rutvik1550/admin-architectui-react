@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useMemo, useState } from "react";
 import { CSSTransition, TransitionGroup } from "react-transition-group";
 import "./mail.scss";
 import {
@@ -34,36 +34,78 @@ import avatar7 from "../../../assets/utils/images/avatars/9.jpg";
 import avatar8 from "../../../assets/utils/images/avatars/10.jpg";
 
 import bg15 from "../../../assets/utils/images/dropdown-header/city5.jpg";
-import { faStar, faCalendarAlt, faAngleDown, faSearch, faTags } from "@fortawesome/free-solid-svg-icons";
+import {
+  faStar,
+  faCalendarAlt,
+  faAngleDown,
+  faSearch,
+  faSyncAlt,
+  faTrash,
+  faShare,
+  faChevronLeft,
+  faChevronRight,
+  faFilter,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMailService } from "../../../services/mail.service";
 import { connect } from "react-redux";
 import { setAuthToken, setLoading } from "../../../reducers/Auth";
 import { setSelectedFolder } from "../../../reducers/mail";
+import Select from "react-select";
+import makeAnimated from "react-select/animated";
+import { DEBOUNCE_DELAY, emptyFilterOption, sortSelectOptions } from "../../../utils/constants";
+import { SearchForm } from "./SearchForm";
+import { useDebounce } from "../../../hooks/useDebounce";
+
+const animatedComponents = makeAnimated();
 
 const Mailbox = ({ token, selectedFolder, setLoading }) => {
+  const PAGE_LIMIT = 50;
   const [state, setState] = useState({
-    exampleItems: [...Array(30).keys()].map((i) => ({
-      id: i + 1,
-      name: "Item " + (i + 1),
-    })),
-    pageOfItems: [],
     active: false,
   });
+  const [searchText, setSearchText] = useState("");
   const [mails, setMails] = useState([]);
+  const [filteredMails, setFilteredMails] = useState([]);
   const mailService = useMailService(token);
+  const [page, setPage] = useState(1);
+  const [allSelected, setAllSelected] = useState(false);
+  const [selectedMails, setSelectedMails] = useState([]);
+  const [sorting, setSorting] = useState({
+    type: "",
+    asce: true,
+  });
+  const [filterOptions, setFilterOptions] = useState(emptyFilterOption);
 
-  const onChangePage = (pageOfItems) => {
-    setState((prevVal) => ({ ...prevVal, pageOfItems }));
+  const [openMoveFolder, setOpenMoveFolder] = useState({
+    open: false,
+    Newfolderpath: "",
+  });
+
+  const searchQuery = useDebounce(searchText, DEBOUNCE_DELAY);
+
+  const handleSearchEmail = async (searchText) => {
+    setPage(1);
+    if (searchText) {
+      const res = await mailService.searchEmail({
+        ...emptyFilterOption,
+        SearchWords: searchText,
+      });
+      setFilteredMails(res.emailLists);
+    } else {
+      setFilteredMails(mails);
+    }
   };
 
   useEffect(() => {
-    console.log(selectedFolder, "sdfsdf");
+    handleSearchEmail(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (selectedFolder) {
       fetchMails(selectedFolder);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFolder]);
 
   const fetchMails = async (mailboxType) => {
@@ -71,13 +113,153 @@ const Mailbox = ({ token, selectedFolder, setLoading }) => {
       setLoading(true);
       const res = await mailService.getMails(mailboxType);
       setMails(res.emailLists);
+      setFilteredMails(res.emailLists);
     } catch (err) {
       console.log("Error:", err);
     } finally {
       setLoading(false);
     }
   };
-  console.log("mails", mails);
+
+  const perPageMails = useMemo(() => {
+    const skip = (page - 1) * PAGE_LIMIT;
+    const perPageFilterMails = filteredMails.slice(skip, skip + PAGE_LIMIT);
+    if (sorting.type) {
+      return perPageFilterMails.sort((a, b) => {
+        if (sorting.asce) {
+          return a[sorting.type].localeCompare(b[sorting.type], "en", { sensitivity: "base" });
+        } else {
+          return b[sorting.type].localeCompare(a[sorting.type], "en", { sensitivity: "base" });
+        }
+      });
+    }
+    return perPageFilterMails;
+  }, [page, filteredMails, sorting]);
+
+  const handleAllmailCheck = () => {
+    setAllSelected((prev) => !prev);
+  };
+
+  const handleDeleteMails = async () => {
+    try {
+      if (!selectedMails.length) {
+        return;
+      }
+      await mailService.deleteEmail(selectedMails);
+      setSelectedMails([]);
+      fetchMails(selectedFolder);
+    } catch (e) {
+      console.log("exception", e);
+    }
+  };
+
+  const handleRefreshMails = async () => {
+    try {
+      fetchMails(selectedFolder);
+    } catch (error) {
+      console.log("Error with Refresh mails:", error);
+    }
+  };
+
+  const handleSortingSelect = (value) => {
+    if (value.value == sorting.type) {
+      setSorting((prevVal) => ({
+        ...prevVal,
+        asce: !prevVal.asce,
+      }));
+    } else {
+      setSorting({
+        type: value.value,
+        asce: true,
+      });
+    }
+  };
+
+  const openMoveMails = () => {
+    if (!selectedMails.length) return;
+    setOpenMoveFolder({
+      open: true,
+      Newfolderpath: "",
+    });
+  };
+
+  const handlePageChange = (page) => {
+    setPage(page);
+  };
+
+  const MailBoxControls = () => (
+    <div className="app-inner-layout__top-pane pt-0 justify-content-between">
+      <div className="d-flex ali">
+        <Button outline className="control-button me-1" active color="light" onClick={handleAllmailCheck}>
+          <Input type="checkbox" checked={allSelected} className={`form-check-input-custom`} label="&nbsp;" />
+        </Button>
+        <div className="btn-group">
+          <Button outline className="control-button me-1" active color="light" onClick={handleDeleteMails}>
+            <FontAwesomeIcon icon={faTrash} />
+          </Button>
+        </div>
+
+        <Button outline className="control-button me-1" active color="light" onClick={handleRefreshMails}>
+          <FontAwesomeIcon icon={faSyncAlt} />
+        </Button>
+        <Button outline className="control-button me-1" active color="light" onClick={openMoveMails}>
+          Move Mails <FontAwesomeIcon icon={faShare}></FontAwesomeIcon>
+        </Button>
+        <Select
+          closeMenuOnSelect={true}
+          components={animatedComponents}
+          defaultValue={sortSelectOptions.filter((option) => option.value == sorting.type)}
+          onChange={handleSortingSelect}
+          className={`react-sorting-select`}
+          options={sortSelectOptions}
+        />
+      </div>
+      <div className="d-flex align-items-center">
+        <span className="me-1 fw-bolder">{`${(page - 1) * PAGE_LIMIT + 1}-${
+          page * PAGE_LIMIT > filteredMails.length ? filteredMails.length : page * PAGE_LIMIT
+        }/${filteredMails.length}`}</span>
+        <div className="btn-group ml-1">
+          <Button
+            outline
+            className="me-2"
+            active
+            color="light"
+            type="button"
+            onClick={() => {
+              handlePageChange(page - 1);
+            }}
+            // className="btn btn-default btn-sm"
+            disabled={page < 2}
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </Button>
+          <Button
+            outline
+            className="me-2"
+            active
+            color="light"
+            onClick={() => {
+              handlePageChange(page + 1);
+            }}
+            type="button"
+            // className="btn btn-default btn-sm"
+            disabled={(filteredMails.length % 50 == 0 ? page + 1 : page) * PAGE_LIMIT > filteredMails.length}
+          >
+            <FontAwesomeIcon icon={faChevronRight}></FontAwesomeIcon>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const handleSearch = async () => {
+    if (Object.values(filterOptions).every((item) => item == "")) {
+      setFilteredMails(mails);
+    } else {
+      const res = await mailService.searchEmail(filterOptions);
+      setFilteredMails(res.emailLists);
+    }
+  };
 
   return (
     <Fragment>
@@ -111,8 +293,10 @@ const Mailbox = ({ token, selectedFolder, setLoading }) => {
                             onClick={() => setState((prevVal) => ({ ...prevVal, active: state.active }))}
                           />
                         </div>
-                        <h4 className="mb-0"> Inbox</h4>
-                        <UncontrolledButtonDropdown>
+                        <h4 className="mb-0">
+                          {searchText || !Object.values(filterOptions).every((item) => item == "") ? "Seach Result" : selectedFolder}
+                        </h4>
+                        {/* <UncontrolledButtonDropdown>
                           <DropdownToggle color="link">
                             <FontAwesomeIcon icon={faAngleDown} />
                           </DropdownToggle>
@@ -168,22 +352,47 @@ const Mailbox = ({ token, selectedFolder, setLoading }) => {
                               </NavItem>
                             </Nav>
                           </DropdownMenu>
-                        </UncontrolledButtonDropdown>
+                        </UncontrolledButtonDropdown> */}
                       </div>
                       <div className="pane-right">
                         <InputGroup>
                           <div className="input-group-text">
                             <FontAwesomeIcon icon={faSearch} />
                           </div>
-                          <Input placeholder="Search..." />
+                          <Input
+                            placeholder="Search..."
+                            name="SearchWords"
+                            onChange={(e) => {
+                              setSearchText(e.target.value);
+                            }}
+                          />
                         </InputGroup>
+                        <UncontrolledButtonDropdown>
+                          <DropdownToggle color="link">
+                            <FontAwesomeIcon icon={faFilter} />
+                          </DropdownToggle>
+                          <DropdownMenu className="dropdown-menu-xl rm-pointers">
+                            <SearchForm filterOptions={filterOptions} setFilterOptions={setFilterOptions} />
+                            <Nav vertical>
+                              <NavItem className="nav-item-divider" />
+                              <NavItem className="nav-item-btn text-center">
+                                <Button size="sm" className="btn-shadow" color="primary" onClick={handleSearch}>
+                                  Search
+                                </Button>
+                              </NavItem>
+                            </Nav>
+                          </DropdownMenu>
+                        </UncontrolledButtonDropdown>
                       </div>
                     </div>
+                    <MailBoxControls />
                     <div className="bg-white">
                       <Table responsive className="text-nowrap table-lg mb-0" hover>
                         <tbody>
-                          {mails?.length > 0 &&
-                            mails.map((mail, index) => (
+                          {!perPageMails.length ? (
+                            <div className="d-flex justify-content-center font-weight-bold">No Data Found</div>
+                          ) : (
+                            perPageMails?.map((mail, index) => (
                               <tr key={`mail-container-${mail.MSGNUM}-${index}`}>
                                 <td className="text-center" style={{ width: "78px" }}>
                                   <Input type="checkbox" className="form-check-input-custom" id="eCheckbox1" label="&nbsp;" />
@@ -204,15 +413,19 @@ const Mailbox = ({ token, selectedFolder, setLoading }) => {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="text-start">{mail.SUBJECT}</td>
+                                <td className="text-start mail-subject-wrapper">
+                                  <span className="mail-subject">{mail.SUBJECT}</span>
+                                </td>
                                 {/* <td>
                                   <FontAwesomeIcon className="opacity-4" icon={faTags} />
                                 </td> */}
                                 <td className="text-end">
-                                  <FontAwesomeIcon className="opacity-4 me-2" icon={faCalendarAlt} />{mail.RecieveDate}
+                                  <FontAwesomeIcon className="opacity-4 me-2" icon={faCalendarAlt} />
+                                  {mail.RecieveDate}
                                 </td>
                               </tr>
-                            ))}
+                            ))
+                          )}
 
                           {/* <tr>
                             <td className="text-center" style={{ width: "78px" }}>
