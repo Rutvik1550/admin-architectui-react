@@ -1,24 +1,81 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { CSSTransition, TransitionGroup } from "react-transition-group";
 import "./mail.scss";
-import {
-  Button,
-  Card,
-  Nav,
-  NavLink,
-  NavItem,
-} from "reactstrap";
 
 import cx from "classnames";
 
 import PageTitle from "../../../Layout/AppMain/PageTitle";
 import MailList from "./MailList";
 import FolderList from "./FolderList";
+import { useLocation } from "react-router-dom";
+import MailDetails from "./MailDetails";
+import { connect } from "react-redux";
+import { setAuthToken, setLoading } from "../../../reducers/Auth";
+import { setMailFolderList, setSelectedFolder } from "../../../reducers/mail";
+import { useMailService } from "../../../services/mail.service";
+import ComposeMail from "./ComposeMail";
 
-const Mailbox = () => {
+const Mailbox = (props) => {
+  const { token } = props;
   const [state, setState] = useState({
     active: false,
   });
+  const mailService = useMailService(token);
+  const location = useLocation();
+  const [messageDetails, setMessageDetails] = useState({});
+  const searchParams = new URLSearchParams(location.search);
+  const [isReadMail, setIsReadMail] = useState(false);
+  const [htmlContent, setHtmlContent] = useState("");
+  const [viewAsHtml, setViewAsHtml] = useState(false);
+  const [ createNew, setCreateNew ] = useState(false)
+  const folder = searchParams.get("folder");
+  const id = searchParams.get("id");
+  const create = searchParams.get("create");
+
+  useEffect(() => {
+    if (id && folder) {
+      setIsReadMail(true);
+      fetchMessageDetails(id, folder);
+    } else {
+      setIsReadMail(false);
+    }
+
+    if(create === "new-mail") {
+      setCreateNew(true);
+    } else {
+      setCreateNew(false)
+    }
+  }, [folder, id, create]);
+
+  useEffect(() => {
+    if (viewAsHtml && messageDetails && !htmlContent) {
+      fetchHtmlContent(messageDetails.HtmlBodyPath);
+    }
+  }, [viewAsHtml]);
+
+  const fetchHtmlContent = async (filepath) => {
+    try {
+      setLoading(true);
+      const res = await mailService.getHtmlContent(filepath);
+      setHtmlContent(res.HtmlString);
+    } catch (err) {
+      console.log("Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessageDetails = async (msgNum, folderName) => {
+    try {
+      setLoading(true);
+      const res = await mailService.getMessageDetails(msgNum, folderName);
+      setMessageDetails(res);
+    } catch (err) {
+      console.log("Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Fragment>
@@ -38,53 +95,14 @@ const Mailbox = () => {
                 />
               </div>
               <div className="app-inner-layout__wrapper">
-                <MailList />
+                {isReadMail ? (
+                  <MailDetails messageDetails={messageDetails} viewAsHtml={viewAsHtml} setViewAsHtml={setViewAsHtml} htmlContent={htmlContent} setIsReadMail={setIsReadMail} token={token} />
+                ) : createNew ? (
+                  <ComposeMail token={token} />
+                ) : (
+                  <MailList />
+                )}
                 <FolderList />
-                {/* <Card className="app-inner-layout__sidebar">
-                  <Nav vertical>
-                    <NavItem className="pt-4 ps-3 pe-3 pb-3">
-                      <Button block color="primary" className="btn-pill btn-shadow">
-                        Write New Email
-                      </Button>
-                    </NavItem>
-                    <NavItem className="nav-item-header">My Account</NavItem>
-                    <NavItem>
-                      <NavLink href="#">
-                        <i className="nav-link-icon pe-7s-chat"> </i>
-                        <span>Inbox</span>
-                        <div className="ms-auto badge rounded-pill bg-info">8</div>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink href="#">
-                        <i className="nav-link-icon pe-7s-wallet"> </i>
-                        <span>Sent Items</span>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink href="#">
-                        <i className="nav-link-icon pe-7s-config"> </i>
-                        <span>All Messages</span>
-                        <div className="ms-auto badge bg-success">New</div>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem className="nav-item-divider" />
-                    <NavItem>
-                      <NavLink href="#">
-                        <i className="nav-link-icon pe-7s-box2"> </i>
-                        <span>Trash</span>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink href="#">
-                        <i className="nav-link-icon pe-7s-coffee"> </i>
-                        <span>Others</span>
-                        <div className="ms-auto badge bg-warning">512</div>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem className="nav-item-divider" />
-                  </Nav>
-                </Card> */}
               </div>
             </div>
           </div>
@@ -94,4 +112,18 @@ const Mailbox = () => {
   );
 };
 
-export default Mailbox;
+const mapStateToProps = (state) => ({
+  token: state.authReducer.token,
+  loading: state.authReducer.loading,
+  selectedFolder: state.mailReducer.selectedFolder,
+  mailFolderList: state.mailReducer.mailFolderList,
+});
+
+const mapDispatchToProps = (dispatch) => ({
+  setAuthToken: (token) => dispatch(setAuthToken(token)),
+  setLoading: (loading) => dispatch(setLoading(loading)),
+  setSelectedFolder: (selectedFolder) => dispatch(setSelectedFolder(selectedFolder)),
+  setMailFolderList: (mailFolderList) => dispatch(setMailFolderList(mailFolderList)),
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(Mailbox);

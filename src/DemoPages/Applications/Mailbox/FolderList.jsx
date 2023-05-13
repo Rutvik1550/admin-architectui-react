@@ -1,16 +1,21 @@
 import React, { Fragment, useEffect, useMemo, useState } from "react";
 import { connect } from "react-redux";
-import { Button, Card, Nav, NavItem, NavLink } from "reactstrap";
+import { Button, Card, CardHeader, Collapse, Input, Modal, ModalBody, ModalFooter, ModalHeader, Nav, NavItem, NavLink } from "reactstrap";
 import { setAuthToken, setLoading } from "../../../reducers/Auth";
 import { setMailFolderList, setSelectedFolder } from "../../../reducers/mail";
 import { useLocation, useHistory } from "react-router-dom";
 import { useMailService } from "../../../services/mail.service";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faMinus, faPlus, faShare, faTrash } from "@fortawesome/free-solid-svg-icons";
+import makeAnimated from "react-select/animated";
+import Select from "react-select";
+const animatedComponents = makeAnimated();
 
 const FolderList = (props) => {
-  const {setMailFolderList, setLoading, mailFolderList, selectedFolder, setSelectedFolder, token} = props;
+  const { setMailFolderList, setLoading, mailFolderList, selectedFolder, setSelectedFolder, token } = props;
   const location = useLocation();
   const [isCollapseSubFolder, setIsCollapseSubFolder] = useState({});
-  // const history = useHistory();
+  const history = useHistory();
   const [openCreateFolder, setOpenCreateFolder] = useState(false);
   const [folderName, setFolderName] = useState("");
   const mailService = useMailService(token);
@@ -114,26 +119,18 @@ const FolderList = (props) => {
   const handleMoveFolder = async (oldFolder, newFolder) => {
     try {
       if (!newFolder) {
-        setOpenMoveFolder({
-          Newfolderpath: "",
-          Oldfolderpath: "",
-          open: false,
-        });
+        handleCloseMoveMail();
         return;
       }
       const res = await mailService.moveMailFolder(oldFolder, newFolder);
-      console.log("ressdjflksjd::", res);
       if (!res.ErrorMessage) {
         fetchMailFolderList();
+        setSelectedFolder(newFolder);
       }
     } catch (error) {
       console.log("Error with move folder: ", error);
     } finally {
-      setOpenMoveFolder({
-        Newfolderpath: "",
-        Oldfolderpath: "",
-        open: false,
-      });
+      handleCloseMoveMail();
     }
   };
 
@@ -152,89 +149,197 @@ const FolderList = (props) => {
       setLoading(false);
     }
   };
-  
+
+  const handleCloseMoveMail = () => {
+    setOpenMoveFolder({
+      Newfolderpath: "",
+      Oldfolderpath: "",
+      open: false,
+    });
+  };
+
+  const handleComposeMail = () => {
+    history.push("/apps/mailbox?create=new-mail")
+  }
+
   return (
     <Fragment>
       <Card className="app-inner-layout__sidebar">
-      <div className="card-header">
-          <h3 className="card-header-title">Folders</h3>
+        <div className="d-flex mb-2 mt-1 w-100">
+          <button className="btn btn-primary btn-block w-100 ms-2 me-2" onClick={handleComposeMail}>
+            Compose Mail
+          </button>
+        </div>
+        <div className="card-header">
+          <h6 className="card-header-title fw-bolder mb-0">Folders</h6>
         </div>
         <div className="card-body p-0">
           <div className="flex-column accordion">
             {filteredFolders.folders?.map((folder, index) => {
               return (
-                <div className="card-header d-flex justify-content-between no-after" key={`accordion-title-${index}`}>
-                  <h2 className="mb-0 w-100">
-                    <button className="btn btn-block text-left cursor-pointer" type="button" onClick={() => handleFolderClick(folder)}>
+                <CardHeader className="card-header d-flex justify-content-between no-after" key={`accordion-title-${index}`}>
+                  <h2 className="mb-0 w-100 d-flex">
+                    <button className="btn btn-block text-start" type="button" onClick={() => handleFolderClick(folder)}>
                       {folder}
                     </button>
                   </h2>
                   <h2 className="mb-0 d-flex">
-                    <button className="btn btn-block text-left cursor-pointer m-0" type="button" onClick={() => handleOpenDelete(folder)}>
-                      <i className="fas fa-trash"></i>
+                    <button className="btn btn-block text-start m-0 pe-2" type="button" onClick={() => handleOpenDelete(folder)}>
+                      <FontAwesomeIcon icon={faTrash} />
                     </button>
-                    <button className="btn btn-block text-left cursor-pointer m-0" type="button" onClick={() => handleOpenMove(folder)}>
-                      <i className="fas fa-share"></i>
+                    <button className="btn btn-block text-start m-0 ps-2" type="button" onClick={() => handleOpenMove(folder)}>
+                      <FontAwesomeIcon icon={faShare} />
                     </button>
                   </h2>
-                </div>
+                </CardHeader>
               );
             })}
             {Object.entries(filteredFolders.accordionFolders)?.map((value, index) => {
               return (
                 <div className={`card mb-0 ${!isCollapseSubFolder[value[0]] ? "collapsed-card" : ""}`} key={`accordion-title-${index}`}>
-                  <div
-                    className="card-header cursor-pointer"
+                  <CardHeader
+                    className="d-flex justify-content-between"
                     onClick={() => {
                       handleCollapseSubFolder(value[0]);
                     }}
                   >
-                    <h3 className="card-title accordion__title">{value[0]}</h3>
+                    <h3 className="card-title accordion__title mb-0">{value[0]}</h3>
                     <div className="card-tools">
-                      <button type="button" className="btn btn-tool" data-card-widget="collapse">
-                        <i className={`fas ${!isCollapseSubFolder[value[0]] ? "fa-plus" : "fa-minus"}`}></i>
-                      </button>
+                      {/* <Button type="button" className="btn btn-tool" outline data-card-widget="collapse"> */}
+                      <FontAwesomeIcon icon={!isCollapseSubFolder[value[0]] ? faPlus : faMinus} />
+                      {/* </Button> */}
                     </div>
-                  </div>
-                  <div className="card-body p-0">
+                  </CardHeader>
+                  <Collapse isOpen={isCollapseSubFolder[value[0]]} className="card-body p-0">
                     {value[1].map((subFolder, idx) => {
                       return (
                         <div className="card-header d-flex justify-content-between no-after" key={`accordion-item-${idx}`}>
-                          <h2 className="mb-0 w-100">
-                            <button className="btn btn-block text-left" type="button" onClick={() => handleFolderClick(value[0] + "/" + subFolder)}>
+                          <h2 className="mb-0 w-100 d-flex">
+                            <button
+                              className="btn btn-block text-start w-100"
+                              type="button"
+                              onClick={() => handleFolderClick(value[0] + "/" + subFolder)}
+                            >
                               {subFolder}
                             </button>
                           </h2>
                           <h2 className="mb-0 d-flex">
                             <button
-                              className="btn btn-block text-left cursor-pointer m-0"
+                              className="btn btn-block text-start m-0 pe-2"
                               type="button"
                               onClick={() => handleOpenDelete(value[0] + "/" + subFolder)}
                             >
-                              <i className="fas fa-trash"></i>
+                              <FontAwesomeIcon icon={faTrash} />
                             </button>
                             <button
-                              className="btn btn-block text-left cursor-pointer m-0"
+                              className="btn btn-block text-start m-0 ps-2"
                               type="button"
                               onClick={() => handleOpenMove(value[0] + "/" + subFolder)}
                             >
-                              <i className="fas fa-share"></i>
+                              <FontAwesomeIcon icon={faShare} />
                             </button>
                           </h2>
                         </div>
                       );
                     })}
-                  </div>
+                  </Collapse>
                 </div>
               );
             })}
           </div>
+          <div className="d-flex mt-2 w-100">
+            <button className="btn btn-secondary btn-block w-100 ms-2 me-2" onClick={() => setOpenCreateFolder(true)}>
+              Create Folder
+            </button>
+          </div>
         </div>
-      <button className="btn btn-secondary btn-block" onClick={() => setOpenCreateFolder(true)}>
-        Create Folder
-      </button>
       </Card>
 
+      {/* Create Mail Folder */}
+      <Modal isOpen={openCreateFolder} toggle={() => setOpenCreateFolder(false)}>
+        <ModalHeader toggle={() => setOpenCreateFolder(false)} className="fw-bolder">
+          Create Mail Folder
+        </ModalHeader>
+        <ModalBody>
+          <div className="form-group">
+            <label htmlFor="moveMailsSelect" className="mb-2 fw-bolder">
+              Enter Mail Folder Name:
+            </label>
+
+            <Input
+              placeholder="Folder Name"
+              type="text"
+              onChange={(e) => {
+                setFolderName(e.target.value);
+              }}
+            />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="link" onClick={() => setOpenCreateFolder(false)}>
+            Cancel
+          </Button>
+          <Button color="primary" onClick={handleCreateFolder}>
+            Create
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Mail Folder */}
+      <Modal isOpen={openDeleteFolder.open} toggle={() => setOpenDeleteFolder({ name: "", open: false })}>
+        <ModalHeader toggle={() => setOpenDeleteFolder({ name: "", open: false })} className="fw-bolder">
+          Delete Folder
+        </ModalHeader>
+        <ModalBody>
+          <div className="form-group">Are you sure that you want to Delete this Folder "{openDeleteFolder.name}"?</div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="link" onClick={() => setOpenDeleteFolder({ name: "", open: false })}>
+            Cancel
+          </Button>
+          <Button color="primary" onClick={() => handleDeleteFolder(openDeleteFolder.name)}>
+            Delete
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Move Selected Folder */}
+      <Modal isOpen={openMoveFolder.open} toggle={handleCloseMoveMail}>
+        <ModalHeader toggle={handleCloseMoveMail} className="fw-bolder">
+          Move Folder
+        </ModalHeader>
+        <ModalBody>
+          <div className="form-group">
+            <label htmlFor="moveMailsSelect" className="mb-2 fw-bolder">
+              Move Mails To:
+            </label>
+
+            <Select
+              // className="form-control"
+              id="moveMailsSelect"
+              placeholder="Select New Folder"
+              onChange={(e) => setOpenMoveFolder((prevVal) => ({ ...prevVal, Newfolderpath: e.value }))}
+              closeMenuOnSelect={true}
+              components={animatedComponents}
+              defaultValue={openMoveFolder.Newfolderpath}
+              // onChange={handleSortingSelect}
+              className={`react-sorting-select`}
+              options={mailFolderList.map((folder) => ({
+                label: folder.FolderName,
+                value: folder.FolderName,
+              }))}
+            ></Select>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="link" onClick={handleCloseMoveMail}>
+            Cancel
+          </Button>
+          <Button color="primary" onClick={() => handleMoveFolder(openMoveFolder.Oldfolderpath, openMoveFolder.Newfolderpath)}>
+            Move
+          </Button>
+        </ModalFooter>
+      </Modal>
     </Fragment>
   );
 };

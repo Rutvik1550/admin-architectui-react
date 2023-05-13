@@ -41,3 +41,51 @@
     }
   }
 }
+
+.app-inner-layout__sidebar {
+  .card-header {
+    height: 2.5rem;
+
+    h2 {
+      line-height: inherit;
+      height: inherit;
+    }
+  }
+}
+
+.mail-subject-wrapper {
+  cursor: pointer;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+.mailbox-read-info {
+  border-bottom: 1px solid rgba(0,0,0,.125);
+  padding: 10px 20px;
+}
+
+.mailbox-read-message {
+  padding: 10px 20px;
+  white-space: pre-wrap;
+}
+
+.files-container {
+  display: flex;
+  padding: 10px 0;
+}
+
+.files-container .file-wrapper {
+  background: #a9adad;
+  display: flex;
+  padding: 5px 10px;
+  border-radius: 4px;
+  align-items: center;
+  margin-right: 5px;
+}
+
+.files-container .file-wrapper svg {
+  margin: 3px 0px 0px 10px;
+  cursor: pointer;
+}

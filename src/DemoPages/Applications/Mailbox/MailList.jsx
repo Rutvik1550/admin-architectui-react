@@ -41,6 +41,7 @@ import makeAnimated from "react-select/animated";
 import { DEBOUNCE_DELAY, emptyFilterOption, sortSelectOptions } from "../../../utils/constants";
 import { SearchForm } from "./SearchForm";
 import { useDebounce } from "../../../hooks/useDebounce";
+import { useHistory } from "react-router-dom";
 
 const animatedComponents = makeAnimated();
 
@@ -61,12 +62,12 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
     asce: true,
   });
   const [filterOptions, setFilterOptions] = useState(emptyFilterOption);
-
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [openMoveFolder, setOpenMoveFolder] = useState({
     open: false,
     Newfolderpath: "",
   });
-
+  const history = useHistory();
   const searchQuery = useDebounce(searchText, DEBOUNCE_DELAY);
 
   const handleSearchEmail = async (searchText) => {
@@ -132,6 +133,7 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
       await mailService.deleteEmail(selectedMails);
       setSelectedMails([]);
       fetchMails(selectedFolder);
+      setOpenDeleteModal(false);
     } catch (e) {
       console.log("exception", e);
     }
@@ -171,6 +173,10 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
     setPage(page);
   };
 
+  const handleOnClickMail = (mail) => {
+    history.push(`/apps/mailbox?id=${mail.MSGNUM}&folder=${selectedFolder}`);
+  };
+
   const MailBoxControls = () => (
     <div className="app-inner-layout__top-pane pt-0 justify-content-between">
       <div className="d-flex ali">
@@ -178,7 +184,7 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
           <Input type="checkbox" checked={allSelected} className={`form-check-input-custom`} label="&nbsp;" />
         </Button>
         <div className="btn-group">
-          <Button outline className="control-button me-1" active color="light" onClick={handleDeleteMails}>
+          <Button outline className="control-button me-1" active color="light" onClick={() => setOpenDeleteModal(true)}>
             <FontAwesomeIcon icon={faTrash} />
           </Button>
         </div>
@@ -260,6 +266,31 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
     }
   };
 
+  const handleMoveMails = async (folder) => {
+    try {
+      if (!folder) {
+        setOpenMoveFolder({
+          Newfolderpath: "",
+          open: false,
+        });
+        return;
+      }
+      const _mails = selectedMails.map((mail) => ({ ...mail, OldMailFolderName: mail.MailFolderName, NewMailFolderName: folder }));
+
+      const res = await mailService.shiftMail(_mails);
+      setSelectedMails([]);
+      if (!res.ErrorMessage) {
+        fetchMails(selectedFolder);
+        setOpenMoveFolder({
+          Newfolderpath: "",
+          open: false,
+        });
+      }
+    } catch (error) {
+      console.log("Error with shift mails: ", error);
+    }
+  };
+
   return (
     <Fragment>
       <Card className="app-inner-layout__content">
@@ -331,25 +362,18 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
                       <td className="text-start ps-1">
                         <FontAwesomeIcon icon={faStar} />
                       </td>
-                      <td>
+                      <td className="cursor-pointer" onClick={() => handleOnClickMail(mail)}>
                         <div className="widget-content p-0">
                           <div className="widget-content-wrapper">
-                            {/* <div className="widget-content-left me-3">
-                                    <img width={42} className="rounded-circle" src={avatar1} alt="" />
-                                  </div> */}
                             <div className="widget-content-left">
-                              <div className="widget-heading">{mail.FROMMAIL}</div>
-                              {/* <div className="widget-subheading">Last seen online 15 minutes ago</div> */}
+                              <div className="widget-heading">{mail.FROMMAIL.split(" <")[0]}</div>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="text-start mail-subject-wrapper">
+                      <td className="text-start mail-subject-wrapper cursor-pointer" onClick={() => handleOnClickMail(mail)}>
                         <span className="mail-subject">{mail.SUBJECT}</span>
                       </td>
-                      {/* <td>
-                                  <FontAwesomeIcon className="opacity-4" icon={faTags} />
-                                </td> */}
                       <td className="text-end">
                         <FontAwesomeIcon className="opacity-4 me-2" icon={faCalendarAlt} />
                         {mail.RecieveDate}
@@ -364,6 +388,7 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
         </div>
       </Card>
 
+      {/* Move selected mails */}
       <Modal isOpen={openMoveFolder.open} toggle={handleCloseMoveMail}>
         <ModalHeader toggle={handleCloseMoveMail} className="fw-bolder">
           Move Folder
@@ -378,23 +403,43 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
               // className="form-control"
               id="moveMailsSelect"
               placeholder="Select New Folder"
-              onChange={(e) => setOpenMoveFolder((prevVal) => ({ ...prevVal, Newfolderpath: e.target.value }))}
+              onChange={(e) => setOpenMoveFolder((prevVal) => ({ ...prevVal, Newfolderpath: e.value }))}
               closeMenuOnSelect={true}
               components={animatedComponents}
               defaultValue={openMoveFolder.Newfolderpath}
               // onChange={handleSortingSelect}
               className={`react-sorting-select`}
-              options={mailFolderList}
-            >
-            </Select>
+              options={mailFolderList.map((folder) => ({
+                label: folder.FolderName,
+                value: folder.FolderName,
+              }))}
+            ></Select>
           </div>
         </ModalBody>
         <ModalFooter>
           <Button color="link" onClick={handleCloseMoveMail}>
             Cancel
           </Button>
-          <Button color="primary" onClick={handleCloseMoveMail}>
+          <Button color="primary" onClick={() => handleMoveMails(openMoveFolder.Newfolderpath)}>
             Move
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete selected mails */}
+      <Modal isOpen={openDeleteModal} toggle={() => setOpenDeleteModal(false)}>
+        <ModalHeader toggle={() => setOpenDeleteModal(false)} className="fw-bolder">
+          Delete Mails
+        </ModalHeader>
+        <ModalBody>
+          <div className="form-group">Are you sure that you want to delete selected mails?</div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="link" onClick={() => setOpenDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button color="primary" onClick={handleDeleteMails}>
+            Delete
           </Button>
         </ModalFooter>
       </Modal>
