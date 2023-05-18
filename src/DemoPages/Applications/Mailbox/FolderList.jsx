@@ -179,7 +179,7 @@ const FolderList = (props) => {
               return (
                 <CardHeader className="card-header d-flex justify-content-between no-after" key={`accordion-title-${index}`}>
                   <h2 className="mb-0 w-100 d-flex">
-                    <button className="btn btn-block text-start" type="button" onClick={() => handleFolderClick(folder)}>
+                    <button className="btn btn-block text-start w-100" type="button" onClick={() => handleFolderClick(folder)}>
                       {folder}
                     </button>
                   </h2>
@@ -198,7 +198,7 @@ const FolderList = (props) => {
               return (
                 <div className={`card mb-0 ${!isCollapseSubFolder[value[0]] ? "collapsed-card" : ""}`} key={`accordion-title-${index}`}>
                   <CardHeader
-                    className="d-flex justify-content-between"
+                    className="d-flex justify-content-between cursor-pointer"
                     onClick={() => {
                       handleCollapseSubFolder(value[0]);
                     }}

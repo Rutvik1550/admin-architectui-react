@@ -1,7 +1,7 @@
-import React, { Fragment, useRef } from "react";
+import React, { Fragment, useRef, useState } from "react";
 import { useMailService } from "../../../services/mail.service";
-import { useLocation } from "react-router-dom";
-import { Button, Card } from "reactstrap";
+import { useHistory, useLocation } from "react-router-dom";
+import { Button, Card, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCloudDownloadAlt, faFile, faPaperclip, faPrint, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 
@@ -11,6 +11,11 @@ function MailDetails(props) {
   const mailRef = useRef();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
+  const [openDeleteMail, setOpenDeleteMail] = useState({
+    name: "",
+    open: false,
+  });
+  const history = useHistory()
 
   const handleClickToggle = () => {
     setViewAsHtml((prev) => !prev);
@@ -27,6 +32,7 @@ function MailDetails(props) {
       const res = await mailService.deleteEmail([payload]);
       if (res === "Success") {
         setIsReadMail(false);
+        history.goBack()
       }
     } catch (error) {
       console.log("Error with Delete mail.", error);
@@ -94,7 +100,12 @@ function MailDetails(props) {
           )}
 
           <div className="card-footer">
-            <Button type="button" className="btn btn-default me-2" onClick={handleDeleteMail}>
+            <Button type="button" className="btn btn-default me-2" onClick={() => {
+              setOpenDeleteMail({
+                open: true,
+                name: messageDetails.Subject
+              })
+            }}>
               <FontAwesomeIcon icon={faTrashAlt} /> Delete
             </Button>
             <Button type="button" className="btn btn-default" onClick={handlePrintmail}>
@@ -103,6 +114,23 @@ function MailDetails(props) {
           </div>
         </div>
       </Card>
+      {/* Delete Mail Mail */}
+      <Modal isOpen={openDeleteMail.open} toggle={() => setOpenDeleteMail({ name: "", open: false })}>
+        <ModalHeader toggle={() => setOpenDeleteMail({ name: "", open: false })} className="fw-bolder">
+          Delete Mail
+        </ModalHeader>
+        <ModalBody>
+          <div className="form-group">Are you sure that you want to Delete this Mail "{openDeleteMail.name}"?</div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="link" onClick={() => setOpenDeleteMail({ name: "", open: false })}>
+            Cancel
+          </Button>
+          <Button color="primary" onClick={handleDeleteMail}>
+            Delete
+          </Button>
+        </ModalFooter>
+      </Modal>
     </Fragment>
   );
 }

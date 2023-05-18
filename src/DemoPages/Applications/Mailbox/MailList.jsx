@@ -16,6 +16,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "reactstrap";
+import LoadingOverlay from "react-loading-overlay-ts";
 
 import { Elastic } from "react-burgers";
 
@@ -42,10 +43,11 @@ import { DEBOUNCE_DELAY, emptyFilterOption, sortSelectOptions } from "../../../u
 import { SearchForm } from "./SearchForm";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { useHistory } from "react-router-dom";
+import Loader from "react-loaders";
 
 const animatedComponents = makeAnimated();
 
-const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
+const MailList = ({ token, selectedFolder, setLoading, mailFolderList, loading }) => {
   const PAGE_LIMIT = 50;
   const [state, setState] = useState({
     active: false,
@@ -92,6 +94,14 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
       fetchMails(selectedFolder);
     }
   }, [selectedFolder]);
+
+  useEffect(() => {
+    if (allSelected) {
+      setSelectedMails(perPageMails.map((mail) => ({ Msgnum: mail.MSGNUM, MailFolderName: mail.FolderName })));
+    } else {
+      setSelectedMails([]);
+    }
+  }, [allSelected]);
 
   const fetchMails = async (mailboxType) => {
     try {
@@ -342,47 +352,60 @@ const MailList = ({ token, selectedFolder, setLoading, mailFolderList }) => {
           </div>
           <MailBoxControls />
           <div className="bg-white">
-            <Table responsive className="text-nowrap table-lg mb-0" hover>
-              <tbody>
-                {!perPageMails.length ? (
-                  <div className="d-flex justify-content-center font-weight-bold">No Data Found</div>
-                ) : (
-                  perPageMails?.map((mail, index) => (
-                    <tr key={`mail-container-${mail.MSGNUM}-${index}`}>
-                      <td className="text-center" style={{ width: "78px" }}>
-                        <Input
-                          type="checkbox"
-                          onChange={(e) => handleMailCheckBox(e, mail.MSGNUM, mail.FolderName)}
-                          checked={selectedMails.filter((item) => item.Msgnum == mail.MSGNUM).length > 0}
-                          className="form-check-input-custom"
-                          id="eCheckbox1"
-                          label="&nbsp;"
-                        />
-                      </td>
-                      <td className="text-start ps-1">
-                        <FontAwesomeIcon icon={faStar} />
-                      </td>
-                      <td className="cursor-pointer" onClick={() => handleOnClickMail(mail)}>
-                        <div className="widget-content p-0">
-                          <div className="widget-content-wrapper">
-                            <div className="widget-content-left">
-                              <div className="widget-heading">{mail.FROMMAIL.split(" <")[0]}</div>
+            <LoadingOverlay
+              tag="div"
+              active={loading}
+              styles={{
+                overlay: (base) => ({
+                  ...base,
+                  background: "#fff",
+                  opacity: 0.5,
+                }),
+              }}
+              spinner={<Loader color="#ffffff" active type={"ball-triangle-path"} />}
+            >
+              <Table responsive className="text-nowrap table-lg mb-0" hover>
+                <tbody>
+                  {!perPageMails.length ? (
+                    <div className="d-flex justify-content-center font-weight-bold">No Data Found</div>
+                  ) : (
+                    perPageMails?.map((mail, index) => (
+                      <tr key={`mail-container-${mail.MSGNUM}-${index}`}>
+                        <td className="text-center" style={{ width: "78px" }}>
+                          <Input
+                            type="checkbox"
+                            onChange={(e) => handleMailCheckBox(e, mail.MSGNUM, mail.FolderName)}
+                            checked={selectedMails.filter((item) => item.Msgnum == mail.MSGNUM).length > 0}
+                            className="form-check-input-custom"
+                            id="eCheckbox1"
+                            label="&nbsp;"
+                          />
+                        </td>
+                        <td className="text-start ps-1">
+                          <FontAwesomeIcon icon={faStar} />
+                        </td>
+                        <td className="cursor-pointer" onClick={() => handleOnClickMail(mail)}>
+                          <div className="widget-content p-0">
+                            <div className="widget-content-wrapper">
+                              <div className="widget-content-left">
+                                <div className="widget-heading">{mail.FROMMAIL.split(" <")[0]}</div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="text-start mail-subject-wrapper cursor-pointer" onClick={() => handleOnClickMail(mail)}>
-                        <span className="mail-subject">{mail.SUBJECT}</span>
-                      </td>
-                      <td className="text-end">
-                        <FontAwesomeIcon className="opacity-4 me-2" icon={faCalendarAlt} />
-                        {mail.RecieveDate}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
+                        </td>
+                        <td className="text-start mail-subject-wrapper cursor-pointer" onClick={() => handleOnClickMail(mail)}>
+                          <span className="mail-subject">{mail.SUBJECT}</span>
+                        </td>
+                        <td className="text-end">
+                          <FontAwesomeIcon className="opacity-4 me-2" icon={faCalendarAlt} />
+                          {mail.RecieveDate}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </LoadingOverlay>
             <div className="app-inner-layout__bottom-pane d-block text-center"></div>
           </div>
         </div>
